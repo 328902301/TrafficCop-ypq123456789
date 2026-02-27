@@ -401,30 +401,30 @@ get_traffic_usage() {
         return 1
     fi
     
-    # 将日期转换为时间戳用于比较
-    local start_ts=$(date -d "$start_date" +%s)
-    local end_ts=$(date -d "$end_date 23:59:59" +%s)
+    # 将日期转换为 YYYYMMDD 整数用于比较（兼容 vnstat 2.x 的 date 对象格式）
+    local start_num=$(echo "$start_date" | tr -d '-')
+    local end_num=$(echo "$end_date" | tr -d '-')
     
     # 根据 TRAFFIC_MODE 累加对应的流量
     local usage_bytes
     case $TRAFFIC_MODE in
         out)
-            usage_bytes=$(echo "$vnstat_json" | jq --argjson start_ts "$start_ts" --argjson end_ts "$end_ts" \
-                '[.interfaces[0].traffic.day[] | select(.timestamp >= $start_ts and .timestamp <= $end_ts) | .tx] | add // 0')
+            usage_bytes=$(echo "$vnstat_json" | jq --argjson start_num "$start_num" --argjson end_num "$end_num" \
+                '[.interfaces[0].traffic.day[] | (.date.year * 10000 + .date.month * 100 + .date.day) as $date_num | select($date_num >= $start_num and $date_num <= $end_num) | .tx] | add // 0')
             ;;
         in)
-            usage_bytes=$(echo "$vnstat_json" | jq --argjson start_ts "$start_ts" --argjson end_ts "$end_ts" \
-                '[.interfaces[0].traffic.day[] | select(.timestamp >= $start_ts and .timestamp <= $end_ts) | .rx] | add // 0')
+            usage_bytes=$(echo "$vnstat_json" | jq --argjson start_num "$start_num" --argjson end_num "$end_num" \
+                '[.interfaces[0].traffic.day[] | (.date.year * 10000 + .date.month * 100 + .date.day) as $date_num | select($date_num >= $start_num and $date_num <= $end_num) | .rx] | add // 0')
             ;;
         total)
-            usage_bytes=$(echo "$vnstat_json" | jq --argjson start_ts "$start_ts" --argjson end_ts "$end_ts" \
-                '[.interfaces[0].traffic.day[] | select(.timestamp >= $start_ts and .timestamp <= $end_ts) | (.rx + .tx)] | add // 0')
+            usage_bytes=$(echo "$vnstat_json" | jq --argjson start_num "$start_num" --argjson end_num "$end_num" \
+                '[.interfaces[0].traffic.day[] | (.date.year * 10000 + .date.month * 100 + .date.day) as $date_num | select($date_num >= $start_num and $date_num <= $end_num) | (.rx + .tx)] | add // 0')
             ;;
         max)
-            local rx_bytes=$(echo "$vnstat_json" | jq --argjson start_ts "$start_ts" --argjson end_ts "$end_ts" \
-                '[.interfaces[0].traffic.day[] | select(.timestamp >= $start_ts and .timestamp <= $end_ts) | .rx] | add // 0')
-            local tx_bytes=$(echo "$vnstat_json" | jq --argjson start_ts "$start_ts" --argjson end_ts "$end_ts" \
-                '[.interfaces[0].traffic.day[] | select(.timestamp >= $start_ts and .timestamp <= $end_ts) | .tx] | add // 0')
+            local rx_bytes=$(echo "$vnstat_json" | jq --argjson start_num "$start_num" --argjson end_num "$end_num" \
+                '[.interfaces[0].traffic.day[] | (.date.year * 10000 + .date.month * 100 + .date.day) as $date_num | select($date_num >= $start_num and $date_num <= $end_num) | .rx] | add // 0')
+            local tx_bytes=$(echo "$vnstat_json" | jq --argjson start_num "$start_num" --argjson end_num "$end_num" \
+                '[.interfaces[0].traffic.day[] | (.date.year * 10000 + .date.month * 100 + .date.day) as $date_num | select($date_num >= $start_num and $date_num <= $end_num) | .tx] | add // 0')
             usage_bytes=$(printf '%s\n%s' "$rx_bytes" "$tx_bytes" | sort -rn | head -n1)
             ;;
     esac
